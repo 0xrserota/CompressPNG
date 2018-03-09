@@ -1,0 +1,632 @@
+CONP40 HW4 (arith) DESIGN
+Ravi Serota and Gavin Smith
+02/28/18
+
+
+ARCHITECTURE
+
+The 40image program will be divided into 7 modules, each to be compiled 
+separately and linked together. Each module will work in the direction of the 
+compression and decompression steps.  This will allow for a very modular 
+testing plan, where each module is tested individually, as well as a seamless 
+integration into the 40image program. Each module will be implemented in a 
+<module_name>.c file, with an interface in <module_name>.h file. There will be
+a main function that will call all functions in the modules and handle
+user input. This will be in a file called main.c, and will have helper 
+functions for handling calls to each module.
+
+The compression will work in the following way. First, the PNM image
+will be read using the PNM interface by the functions in the first module.
+A function in the first module will be used to trim the dimensions of the image
+if the height or width are odd. Then, a 2 by 2 pixel block will be read into
+a struct that will contain arrays of red, green, and blue pixel values.
+The 2 by 2 pixel block will be passed through the functions of each module,
+and added to a UArray2 of compressed codewords in row-major order. 
+Then the next 2 by 2 pixel block, going row major across the PNM, will be read 
+into a struct and passed through the compression stages and written to disk. 
+This will be repeated until their are no more pixels in the PNM. 
+Since both dimensions of the PNM will be even, there will never be a pixel left 
+out of one of the 2 by 2 blocks. Thus, all pixels will be compressed, save the 
+ones in any trimmed row or column. Lastly, the UArray2 of compressed data will 
+be written to a file on disk in row-major order. 
+
+The decompression will work in an inverse manner to the compression.
+First, a single codeword will be read from the disk by module 7 and inserted
+into a UArray2 in reverse row-major order. Then, the
+bitpack interface, module 6, will unpack the codeword, placing the data in a 
+struct, and pass the struct to module 5. Each codeword will pass through
+all stages of decompression, and will finally be added to a PNM type in reverse
+row-major order. Then the PNM will be written to standard output.
+
+The idea of this architecture is that it is better to handle data in logical
+chunks one at a time than to manage all the data from module to module for 
+reasons of simplicity and saved performance of not reading from an array at 
+each module. The data will be stored in a UArray2 only in the first and last 
+stages of compression and decompression; otherwise the data will be processed 
+individually.
+
+The modules will be named and designated as follows. They are listed in order
+from uncompressed image (PPM format) to compressed image on disk, top-down.
+
+
+1.      ppmio 
+
+                PURPOSE: Reads or writes PPM image to disk, trims the read in
+                PNM if necessary, and creates 2 by 2 pixel block structs. 
+                Passes these structs to the next module for processing.
+                In the decompression stage.
+
+
+                COMPRESSION FUNCTIONS:      
+
+                Pnm_ppm ppmread(FILE*, A2Methods_T)
+
+                        - Reads in a PPM by calling Pnm_ppmread on the file
+                        pointer and A2Methods_T passed, and assigns the PPM
+                        to a Pnm_ppm type. This is the Pnm_ppm to 
+                        be used with the ppmtrim function. A2Methods_T
+                        will be "uarray2_methods_blocked."      
+
+                void ppmtrim(Pnm_ppm)
+
+                        - Trims the passed Pnm_ppm by modifying the width and
+                        height values if either is odd by subtracting 1 from
+                        either odd value. This is effectively trimming the pnm
+                        since any mapping to be done on the pnm will not access
+                        elements beyond the dimensions. This function will be 
+                        called before make_uray2_blocked.
+
+                A2Methods_UArray2 make_uray2_blocked(Pnm_ppm)
+
+                        - After the PNM is trimmed, this function will read
+                        the pixel data into a A2Method_UArray2 that is made
+                        using  Pnm_ppm->methods->new_with_blocksize, where
+                        blocksize is 2. 
+
+                void get_four_pixels(int col, int row, A2Methods_UArray2,
+                                     void *x, void *cl)
+
+                        - Apply function that creates a "fourpix" struct
+                        from a 2 by 2 pixel block in the PNM. A new one is
+                        created for every four pixels mapped over. The closure
+                        will contain an Rgb_unsigned_pix struct. The mapping
+                        will stop once a struct is full (four pixels have
+                        been stored), and the struct will be added
+                        to blocked_pixels and the struct will be cleared. 
+
+
+                DECOMPRESSION FUNCTIONS:
+
+                A2Methods_UArray2 create_uray2_blocked(int height, int width)
+
+                        - This function will create an A2Methods_UArray2 
+                        that is blocked, and has blocksize 2 and dimensions 
+                        specified by arguments, which will be the same
+                        dimensions of the original trimmed compressed PNM. 
+
+                void put_four_pixels(A2Methods_UArray2, Rgb_unsigned_pix)
+
+                        - Adds the pixels in Rgb_unsigned_pix to 
+                        blocked_pixels, putting them in the correct location
+                        using block-major.
+
+                Pnm_ppm ppmmake(A2Methods_UArray2, A2Methods_T)
+
+                        - Creates a PNM without using Pnm_ppmread. Allocates
+                        memory for a PNM using the width and height of the
+                        A2Methods_UArray2, and reads in pixel data to 
+                        the PNM struct from A2Methods_UArray2.
+
+                void    ppmwrite(Pnm_ppm)
+
+                        - Writes a PNM image to stdout by calling the 
+                        Pnm_ppmwrite function in the PNM interface.
+
+                DATA STRUCTURES: 
+
+                        /* Structs containg a 4 pixel RGB values. 
+                           Stores */
+                        struct Rgb_unsigned_pix {
+                                unsigned red[];   /* 4 element array of red */
+                                unsigned green[]; /* 4 element array of green*/
+                                unsigned blue[];  /* 4 element array of blue */
+                                bool full;
+                                int denominator;
+                        } *Rgb_unsigned_pix;
+
+                        /* Stores the four pixel groups in row-major order
+                        Used as an intermediary for storing pixel blocks before
+                        adding to structs (compression) or assigning to a PNM
+                        (decompression). Blocksize is 2, dimensions are 
+                        dimensions of the PNM over 4. */
+
+                        A2Methods_UArray2 blocked_pixels;
+
+
+                TESTING PLAN: 
+
+                COMPRESSION
+
+                ppmread: This function will be tested by passing in a file 
+                pointer of an image as well as an a A2Methods_T, and check
+                that the Pnm_ppm returned is of the same dimensions as the 
+                image being read from. This function will also contain asserts
+                that should assert if a file that does not exist is attempted
+                to be opened, or if a file of the wrong type is attempted to be
+                opened. Both of those scenarios should abort the program with
+                an error.
+
+                ppmtrim: This function will be tested by passing in a Pnm_ppm
+                that has an even height and width, either the height or the
+                width being odd, or both dimension being odd. In each case
+                the function should change the height or width to be one less
+                than its actual value if the dimension is odd. The Pnm_ppm 
+                implementation will automatically check if the passed in 
+                Pnm image is correctly formated.
+
+                make_uray2_blocked: This function will be tested by passing in
+                the original Pnm_ppm and checking to see if the new 
+                A2Methods_UArray2 is correctly made with the same dimensions
+                as the original image, also we will check if the blocksize 
+                of the new A2 is 2 (which is should be in every case). We will
+                also check with small images (to make it easier to read) to
+                see if the data in the new A2 is the same as the data in the 
+                original image.
+
+                get_four_pixels: This function will be tested by first passing
+                in a small image to be mapped over. We will check if the 
+                structs that are passed back contain the correct information
+                and coorespond to the correct pixels that should have been read
+                (groups of four). We should not have to worry about there being
+                padding because we know from the trim function that the A2
+                should have even dimensions.
+
+                DECOMPRESSION
+
+
+                create_uray2blocked: This function will be tested by passing 
+                in some numbers as the height and width of the A2 that is to be
+                created. From there we will see if the height and width are
+                correct and checking that the correct amount of memory is 
+                allocated.
+
+                put_four_pixels: This function will be tested by first checking
+                if the dimensions of the A2 are the ones that the other 
+                function made them to be (also check that they are even). Then
+                we will start with small images that will only have to take 
+                in a few structs to fill them up. This should return a full
+                A2 that contains the correct pixel information per the pixel
+                structs that were passed into the function. Each struct that
+                is passed in will have to be checked that it contains the 
+                appropriate amount of information (all arrays filled), and 
+                if they do not an assertion will be thrown and the program
+                will terminate.
+
+                ppmmake: This function will be tested by first checking that
+                the height and width of the A2 that is passed in are correct
+                compared to the originally made A2. If a correct A2 is passed
+                in then the correct amount of memory according to the height,
+                width, and size should be allocated, which will be checked.
+
+                ppmwrite: This does not have to be tested because this function
+                will only call Pnm_ppmwrite which will throw exceptions 
+                if the passed in information is incorrect. This will be used 
+                though to see if the newly made image is correct depending
+                on the original image before compression.
+
+
+2.      numtrans
+
+                PURPOSE: Converts PPM RGB pixel values from scaled integers
+                to floating point RGB values, or from floating point RGB values
+                to scaled integer RGB values. Each struct processed will
+                contain three fields, each an array of length four (for the 
+                number of pixels being processed) that contains the data 
+                for pixel (0,0) in the block in array index 0, pixel (1,0) in
+                array index 1, and so forth, in a row-major manner. 
+
+
+                COMPRESSION FUNCTIONS: 
+
+                Rgb_float_data convert_to_floats(Rgb_unsigned_pix, 
+                                                 denominator);
+
+                        - Unscales the values in Rgb_unsigned_pix and casts
+                        them to floats before adding them to an Rgb_float_data.
+                        Returns the Rgb_float_data.
+
+                DECOMPRESSION FUNCTIONS:
+
+                Rgb_unsigned_pix convert_to_ints(Rgb_float_data);
+
+                        - Casts the values in Rgb_float_data to unsigned ints,
+                        scales each to the denominator, and adds to a
+                        Rgb_unsigned_pix struct. Returns an Rgb_unsigned_pix
+                        struct. The denominator will be chosen in this 
+                        function.
+
+                DATA STRUCTURES:
+                        - 
+                        /* The RGB pixel structs, the elements of "pixels"
+                        in the Pnm_ppm_float struct */
+
+                        struct Rgb_float_data {
+                                float red[];    /* 4 element array of red */
+                                float green[];  /* 4 element array of green */
+                                float blue[];   /* 4 element array of blue */
+                        } *Rgb_float_data;
+
+                TESTING PLAN: 
+
+                COMPRESSION
+
+                convert_to_floats: This function will be tested by first 
+                passing in correct Rgb structs and a correct denominator
+                which should return structs that contain that information 
+                but as unscaled floats. This will be tested with small images
+                so that it is easy to tell that every struct needed was made 
+                and that they contain the correct information which will
+                be easy to check by hand (because of the size of the image).
+                There will also be a check in the function to see if the 
+                denominator is within the correct range, and if not it will
+                throw an assertion (eg if -1 is passed in an assertion will
+                be thrown). There will also be a check to see if the rgb values
+                are correct, which will also throw an assertion if they are not
+                (eg if an rgb value is somehow negative an assertion will be 
+                thrown).
+
+                DECOMPRESSION
+
+                convert_to_ints: This function will be tested by first passing
+                in correct float structs which should return rgb structs that 
+                contain the correct rgb values. This will be checked with small
+                images first so that we can check by hand if the values 
+                calculated by the function are correct. There will be a check
+                to see if the float data passed in is a reasonable value, and
+                if not an assertion will be thrown (but this shouldnt happen
+                assuming all of the other modules work correctly).
+
+
+3.      colortrans
+
+                PURPOSE: Converts PPM pixels from RGB floating point values to
+                component video space, Y-Pb-Pr and vice-versa. Creates a
+                struct Ypp_data with three arrays, each of length four, from
+                an Rgb_float_data struct, or creates a Rgb_float_data struct
+                from Ypp_data.
+
+
+                COMPRESSION FUNCTIONS:
+
+                void rgbtoypp(Rgb_float_data)
+
+                        - Converts each value in Rgb_float_data to YPP colors
+                        and adds each value to a Ypp_data struct.
+                        This is done using the linear transformation formula 
+                        provided that converts RGB values to component video 
+                        space values. Returns the Ypp_data struct.
+
+                        INVARIANT:
+                        y = 0.299 * r + 0.587 * g + 0.114 * b;
+                        pb = -0.168736 * r - 0.331264 * g + 0.5 * b;
+                        pr = 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+
+                DECOMPRESSION FUNCTIONS:
+
+                Rgb_float_data ypptorgb(Ypp_data)
+
+                        - Converts each value in Ypp_data to an RGB color float
+                        and adds it to an Rgb_float_data struct.
+                        This is done using the linear transformation 
+                        formula provided that converts component video space
+                        values to RGB values. Returns the Rgb_float_data 
+                        struct.
+
+                        INVARIANT:
+                        r = 1.0 * y + 0.0 * pb + 1.402 * pr;
+                        g = 1.0 * y - 0.344136 * pb - 0.714136 * pr;
+                        b = 1.0 * y + 1.772 * pb + 0.0 * pr;
+
+
+                DATA STRUCTURES: 
+
+                        /* A struct to hold component video color data
+                        for a 2 by 2 pixel block */
+
+                        struct Ypp_data {
+                                float y[];  /* Four element array of Y */
+                                float pb[]; /* Four element array of Pb */
+                                float pr[]; /* Four element array of Pr */
+                        } *Ypp_data;
+
+
+                TESTING PLAN:
+
+                COMPRESSION
+
+                rgbtoypp: This function will mainly be tested with small images
+                that make it easy to check if the passed in float values are 
+                accurately transformed into the new desired values. Small 
+                images make it easy to check every value before and after by 
+                being able to do the math out by hand. Also again there will
+                be a check to make sure the rgb values are within normal bounds
+                with an assertion, but again this should not happen based upon
+                the invariants of the modules. Also we will check that the
+                structs that are passed out for a larger image are passed out
+                in the correct order. Afterwards we will again check by hand
+                to see if the new numbers given to us, when run through the 
+                inverse process, give us the original numbers that we started
+                with.
+
+                DECOMPRESSION
+
+                ypptorgb: This function will be tested first with either small
+                images or singular structs passed in. This way it will be 
+                easier to check if the function performed the math correctly 
+                and passed back the correct numbers in the correct places. 
+                Directly after this we will check by hand, doing the inverse
+                functions, to see if the results of that give us the numbers
+                that we originally started with. Also there will be an 
+                assertion thrown if the given values are out of the range
+                that they could be, but this is mainly used for testing that
+                our other modules pass through the correct information
+                during testing.
+
+
+4.      quantizedata
+
+                PURPOSE: This module takes in a Ypp_data struct and calculates
+                the discrete cosine transform and quantization of chroma 
+                operations on the brightness and color data. Can take in a
+                Quant_data struct and perform the inverse quantization and
+                DCT operations.
+
+
+                COMPRESSION FUNCTIONS:
+
+                Quant_data ypptoquant(Ypp_data)
+
+                        - Creates a Quant_data struct and calls
+                        the two helper functions below to calculate
+                        the DCT and perform the quantization of chroma. 
+                        Returns the created Quant_data.
+
+                void dct_calculate(Quant_data, Ypp_data);
+
+                        - Calulates the DCT of the values in Ypp_data     
+
+                        INVARIANT: 
+                        a = (Y4 + Y3 + Y2 + Y1)/4.0
+                        b = (Y4 + Y3 − Y2 − Y1)/4.0
+                        c = (Y4 − Y3 + Y2 − Y1)/4.0
+                        d = (Y4 − Y3 − Y2 + Y1)/4.0
+
+                void quantize_chroma(Quant_data, Ypp_data)
+
+                        - Quantizes the chroma values in Ypp_data
+                        by averaging the Pr and Pb values and calling
+                        Arith40_index_of_chroma and storing the result
+                        in the "index_of_chroma" field in Quant_data.
+
+
+                DECOMPRESSION FUNCTIONS:
+
+                Ypp_data  quanttoypp(Quant_data);
+
+                        - Calls both inverse helper functions below. 
+                        Creates a Ypp_data to pass to helper functions.
+                        Returns the created Ypp_data.
+
+                void inverse_quantize_chroma(Quant_data, Ypp_data)
+
+                        - Performs the inverse function of quantize_chroma
+                        by calling Arith40_chroma_of_index on index_of_chroma
+                        and stores the result in Ypp_data.
+
+                void inverse_dct_calculate(Quant_data, Ypp_data)
+
+                        -  Performs the inverse function of 
+                        "dct_calculate_values" by using the inverse
+                        of the Discrete Cosine Transform and stores the 
+                        results in Ypp_data. 
+
+                        INVARIANT: 
+                        Y1 = a − b − c + d
+                        Y2 = a − b + c − d
+                        Y3 = a + b − c − d
+                        Y4 = a + b + c + d
+
+                DATA STRUCTURES:
+
+                        /* Contains the quantized a,b,c,d and 
+                           index_of_chroma */
+
+                        struct Quant_data {
+                                unsigned a;
+                                int b, c, d;
+                                float index_of_chroma;
+                        } *Quant_data;
+
+
+                TESTING PLAN: 
+
+                COMPRESSION
+
+                ypptoquant: This function will only be tested to see that 
+                correct values are passed in to the helper function and to
+                see if a correctly formatted struct is returned, assuming that
+                the other helper function are tested correctly we should not 
+                have to worry about testing this function.
+
+                dct_calculate: This function will be tested by first just
+                passing in either singular structs or small pictures to 
+                test on a small scale where checking by hand will be easy.
+                Assuming that correct values have been passed in we will just
+                take the values that the dct gives us and check that they match
+                us doing the math out by hand, and then we will do the inverse
+                calculations on the numbers to make sure that we get the 
+                numbers we originally started with.
+
+                quantize_chroma: This function will be tested by first passing
+                in singular structs. The testing should be straightforward
+                as all the math done is just calculate the averages of the Pb
+                and Pr values passed in and those values are passed into the 
+                function given to us which returns the value index_of_chroma
+                which is added to the struct. So we will still be able to 
+                check that the average was correctly calculated, and the 
+                given function should test to see if the passed in values
+                are in the correct range.
+
+                DECOMPRESSION
+
+                quanttoypp: This function only has to test that the correct
+                struct is passed in as the other helper function should test 
+                that the internal values passed in are correct and all of the 
+                calculations are done in these helper functions.
+
+                inverse_quantize_chroma: This function also does not have to 
+                be really tested because the only thing that is called in this
+                function is the helper function that is given to us, so 
+                assuming that function operates correctly we will just have
+                to check that the values that are given to us are correctly
+                passed in to the struct.
+
+                inverse_dct_calculate: This function will first be tested
+                with singular structs or small images to be able to easily
+                see if the calculations were correctly carried out. Assuming
+                correct values were given to us we can carry out the 
+                calculations on them. Once we have the new numbers we can check
+                their correctness by hand with the function given to us. Then
+                we will check these numbers again by using them with the 
+                inverse function and seeing if the results are the same as 
+                the numbers we originally received.
+
+5.      bitpack
+
+                PURPOSE: Packs a Quant_data struct's data into a 32 byte 
+                codeword.
+
+
+                FUNCTIONS:
+
+                bool Bitpack_fitsu(uint64_t n, unsigned width);
+
+                bool Bitpack_fitss( int64_t n, unsigned width);
+
+                uint64_t Bitpack_getu(uint64_t word, unsigned width, 
+                unsigned lsb);
+
+                int64_t Bitpack_gets(uint64_t word, unsigned width, 
+                unsigned lsb);
+
+                uint64_t Bitpack_newu(uint64_t word, unsigned width, 
+                unsigned lsb, uint64_t value);
+
+                uint64_t Bitpack_news(uint64_t word, unsigned width, 
+                unsigned lsb, int64_t value);
+
+                extern Except_T Bitpack_Overflow;
+
+
+                DATA STRUCTURES:
+                None.
+
+
+                TESTING PLAN:
+
+                Bitpack_fitsu: To test this function, we would pass in 
+                the arguments that are of the form (n, k), with n == k, 
+                n == k - 1, n == k + 1, n == k+2, and n == k - 2, for varying
+                values of k. We would expect the cases where n > (2^k) - 1 
+                to return false, and all other cases to return true. 
+                If a value larger than can be contained in a uint64_t is passed
+                as n an exception should be thrown. If a value larger
+                than can be contained in an unsigned int is passed as width,
+                an exception should be thrown.
+
+
+                Bitpack_fitss: To test this function, we would pass in the 
+                arguments that are of the form (n, k), with n == k, n == k - 1,
+                n == k + 1, n == k + 2, and n == - k - 2, for varying values of 
+                k. We would expect any case where
+                -(2^(k-1)) < n < (2^(k-1)) - 1 would be true, and in any other
+                case it would be false.
+
+
+                Bitpack_getu & Bitpack_gets: Passing in a width that is not
+                between 0 and 64 would be an error that an assertion would
+                catch and terminate the program. If the width plus the least
+                significant digit was greater than 64, or if the least
+                significant digit is less than 0 this will also produce a run
+                time error that  terminates the program. To test this function
+                we will pass in specific words that we have created where we
+                know what the  output should be for each case. For example we
+                will pass in a large hex number and start with only retrieving
+                the first bit, and then the second, and then we will try
+                retrieving the first two at once, and so on, each time checking
+                that the value we receive is correct. This process will be 
+                different for signed versus unsigned because of twos 
+                compliment, which will cause the number to be negative 
+                depending on the first bit.
+
+                Bitpack_news & Bitpack_newu: The testing of these functions
+                will be similar to the get functions. We will have to test
+                that the functions properly deal with widths and lsb that
+                are out of the range that they should be in. The process for 
+                testing words will also be similar in that we will have a word
+                for which we know the value and we will try to change certain
+                values in that word, first small, then larger and at different
+                places. After changing the word we will look at the new value
+                of the word and check that the changed values in the word 
+                changed the value of the whole word correctly.
+
+
+6.      binimgio
+
+                PURPOSE: Takes in a codeword and adds it to a UArray2_plain
+                to be written to disk, and writes the UArray2 once all 
+                codewords have been added. Reads codewords from disk into
+                a UArray2_plain to be passed to bitpack.
+
+
+                COMPRESSION FUNCTIONS:
+
+                void write_uarray2(A2Methods_UArray2)
+
+                        - Writes the codewords to standard output.
+
+                DECOMPRESSION FUNCTIONS:
+
+                A2Methods_UArray2 read_uarray2(FILE*)
+
+                        - Reads codewords stored in the file pointed to by
+                        FILE* into a A2Methods_UArray2 and returns this.
+
+
+                DATA STRUCTURES:
+
+                /* For storing codewords for writing or after reading */
+                A2Methods_UArray2
+
+                TESTING PLAN:
+
+                COMPRESSION
+
+                write_uarray2: This function will be tested by checking to see
+                if the information written to standard output is the same as 
+                the information that was in the UArray2. This could be tested
+                with small images first so that we can easily compare what is
+                in the codeword UArray2 and what is printed to standard output.
+
+                DECOMPRESSION
+
+                read_uarray2: This function will be tested by both passing
+                in small files from standard input and from an external file.
+                Since we will know what is being passed in it is easy to just
+                map through the UArray2 that was made and check if the 
+                information in it corresponds to the information that we passed
+                in. Also this function will throw assertions if the passed in
+                file does not exist or is not of the type that we desire (ie
+                the information in the file is incorrect for what we are trying
+                to do).    
