@@ -3,6 +3,11 @@
 #ifndef QUANTIZE_H 
 #define QUANTIZE_H
 
+/* Struct Quant_data contains the index of Pr and Pb values as unsigned and
+ * a, b, c, and d as floats. Used for converting from component video values
+ * to quantized data.
+ */
+
 typedef struct Quant_data {
         unsigned index_pr, index_pb;
         float a, b, c, d;
