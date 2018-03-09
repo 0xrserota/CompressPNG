@@ -3,6 +3,11 @@
 #include "bitpack.h"
 #include "assert.h"
 
+/* Function Bitpack_fitsu takes in a uint64_t and an unsigned and returns a 
+ * bool. Checks to see if the given uint64_t can fit in the given width of
+ * bits.
+ */
+
 bool Bitpack_fitsu(uint64_t n, unsigned width)
 {
         assert(width <= 64);
@@ -16,6 +21,10 @@ bool Bitpack_fitsu(uint64_t n, unsigned width)
         }
 }
 
+/* Function Bitpack_fitss takes in an int64_t and an unsigned and returns a 
+ * bool. Checks to see if the given int64_t can fit within the given width of
+ * bits.
+ */
 
 bool Bitpack_fitss(int64_t n, unsigned width)
 {
@@ -30,6 +39,11 @@ bool Bitpack_fitss(int64_t n, unsigned width)
         }
 }
 
+/* Function Bitpack_getu takes in a uint64_t and 2 unsigned and returns a
+ * uint64_t. Gets the bits from the given uint64_t in the width starting 
+ * at the given least significant bit.
+ */
+
 uint64_t Bitpack_getu(uint64_t word, unsigned width, unsigned lsb)
 {
         assert(width + lsb <= 64);
@@ -39,6 +53,10 @@ uint64_t Bitpack_getu(uint64_t word, unsigned width, unsigned lsb)
         return word << (64 - (width + lsb)) >> (64 - width);
 }
 
+/* Function Bitpack_gets takes in a int64_t and 2 unsigned and returns an
+ * int64_t. Gets the bits from the given int64_t in the width starting 
+ * at the given least significant bit.
+ */
 
 int64_t Bitpack_gets(uint64_t word, unsigned width, unsigned lsb)
 {
@@ -58,8 +76,13 @@ int64_t Bitpack_gets(uint64_t word, unsigned width, unsigned lsb)
         }
 }
 
+/* Function Bitpack_newu takes in a 2 uint64_t's and 2 unsigned and returns a 
+ * uint64_t. Puts the given uint64_t in the given codeword in the given 
+ * width at the given least significant bit.
+ */
 
-uint64_t Bitpack_newu(uint64_t word, unsigned width, unsigned lsb, uint64_t value)
+uint64_t Bitpack_newu(uint64_t word, unsigned width, unsigned lsb, uint64_t
+                      value)
 {
         assert(width + lsb <= 64);
         if(width == 0) {
@@ -73,6 +96,11 @@ uint64_t Bitpack_newu(uint64_t word, unsigned width, unsigned lsb, uint64_t valu
         value = value << lsb;
         return word | bits1 | value;
 }
+
+/* Function Bitpack_news takes in an int64_t and a uint64_t and 2 unsigned and
+ * returns a uint64_t. Puts the given int64_t in the given codeword in the
+ * given width at the given least significant bit.
+ */
 
 uint64_t Bitpack_news(uint64_t word, unsigned width, unsigned lsb, int64_t value)
 {
@@ -88,7 +116,6 @@ uint64_t Bitpack_news(uint64_t word, unsigned width, unsigned lsb, int64_t value
         word = word >> (width + lsb) << (width + lsb);
         return word | bits1 | value;
 }
-
 
 #include "except.h"
 Except_T Bitpack_Overflow = { "Overflow packing bits" };
