@@ -1,0 +1,105 @@
+Gavin Smith and Ravi Serota
+COMP40 Arith Project README
+March 8, 2018
+
+
+
+*** Acknowledgements ***
+
+We collaborated with George West and Liam Durant on general concepts for this
+assignment. They are another pair in COMP40.
+
+
+
+
+*** Implemented Correctly ***
+
+All parts of the assignment have been implemented correctly.
+
+The compression and decompression both work to within 1-2.5% error on identical
+images. Reading and writing the PNM images works. Reading, writing, and packing
+codewords works.
+
+To our knowledge, the program does not segfault. 
+
+The program does not have any memory leaks.
+
+
+
+
+*** Solution Architecture ***
+
+The solution is divided into 6 modules. The program main is located in the
+file 40image.c, which calls the functions in compress40.c, which call
+the top functions in ppmio.c.
+
+
+1. ppmio.c
+
+        - The "Head" module
+
+        - Handles all I/O for the solution, including reading PNMs, 
+        writing PNMs, writing codewords, and reading codewords.
+
+        - Passes all read in RGB data through compression, and writes the 
+        codewords returned from the compression modules. 
+
+        - Passes all read codewords through decompression, and writes the
+        RGB data returned from the compression modules.
+
+
+2. rgbfloat.c
+
+        - The first data compression module.
+        - The fourth data decompression module.
+        - Converts scaled RGB values to unscaled floats, and vice-versa.
+
+3. colortrans.c
+        
+        - The second data compression module.
+        - The third to last data decompression module.
+        - Converts RGB float values to component video space (Y, Pb, Pr) 
+        colors, and vice-versa.
+
+4. quantize.c
+
+        - The third data compression module.
+        - The second data decompression module.
+        - Converts component video space color values to a, b, c, d,
+        index_pb, and index_pr value, and vice-versa.
+
+5. codeword.c
+
+        - The fourth data compression module.
+        - The first data decompression module.
+        - Packs a, b, c, d, index_pb, and index_pr values into a
+        32 bit codeword, and vice-versa.
+
+
+6. bitpack.c
+
+        - The bitpack module, specified in the arith spec. Called when
+        reading codewords in ppmio.c, and in the functions for packing and
+        unpacking codewords in codeword.c.
+
+        - Acts as a helper module. No data is passed directly to this module
+        for compression/decompression.
+
+
+
+
+
+*** Time Spent Analyzing Problems ***
+
+We spent approximately 10 hours analyzing the problems for this assignment.
+
+
+
+
+*** Time Spent Solving Problems ***
+
+We spent approximately 30 hours solving the problem for this assignment.
+
+
+
+*******************************************************************************
