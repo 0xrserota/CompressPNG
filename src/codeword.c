@@ -50,26 +50,26 @@ uint32_t pack_data(float a, float b, float c, float d, unsigned index_pr,
 
         codeword = Bitpack_newu(codeword, 4, 0, pri);
         codeword = Bitpack_newu(codeword, 4, 4, pbi);
-        codeword = Bitpack_news(codeword, 6, 8, di);
-        codeword = Bitpack_news(codeword, 6, 14, ci);
-        codeword = Bitpack_news(codeword, 6, 20, bi);
-        codeword = Bitpack_newu(codeword, 6, 26, ai);
+        codeword = Bitpack_news(codeword, 5, 8, di);
+        codeword = Bitpack_news(codeword, 5, 13, ci);
+        codeword = Bitpack_news(codeword, 5, 18, bi);
+        codeword = Bitpack_newu(codeword, 9, 23, ai);
 
         return (uint32_t) codeword;
 }
 
 /* Function code_a_as_uint takes in a float and returns a uint64_t. Multiplies
- * a by 63 so that it is in the correct range and returns it as a uint64_t.
+ * a by 511 so that it is in the correct range and returns it as a uint64_t.
  */
 
 uint64_t code_a_as_uint(float a)
 {
-        a *= 63;
+        a *= 511;
         return (uint64_t) round(a);
 }
 
 /* Function code_bcd_as_int takes in a float and returns an int64_t. Checks
- * if the float is out of the range and then multiplies by 100 so that they
+ * if the float is out of the range and then multiplies by 50 so that they
  * are in the right range and returns it as an int64_t.
  */
 
@@ -82,29 +82,29 @@ int64_t code_bcd_as_int(float n)
         } 
 
         /* Converts float value to range {-15,...,15} */
-        n *= 100;
+        n *= 50;
 
         return (int64_t) round(n);
 } 
 
 /* Function decode_a takes in a float and returns a float. Divides the passed
- * in value by 63.
+ * in value by 511.
  */       
 
 float decode_a(float a)
 {
-        a /= 63;
+        a /= 511;
         return a;
 }
 
 /* Function decode_bcd takes in a float and returns a float. Divides the given
- * value by 100.
+ * value by 50.
  */
 
 float decode_bcd(float n)
 {
-        /* Converts range {-30,...,30} to floats */ 
-        n /= 100;
+        /* Converts range {-15,...,15} to floats */ 
+        n /= 50;
         return n;
 }
 
@@ -122,10 +122,10 @@ Quant_data unpack_codeword(uint32_t codeword)
         float a, b, c, d;
         unsigned index_pb, index_pr;
          
-        ai  = Bitpack_getu(codeword, 6, 26);
-        bi  = Bitpack_gets(codeword, 6, 20);
-        ci  = Bitpack_gets(codeword, 6, 14);
-        di  = Bitpack_gets(codeword, 6, 8);
+        ai  = Bitpack_getu(codeword, 9, 23);
+        bi  = Bitpack_gets(codeword, 5, 18);
+        ci  = Bitpack_gets(codeword, 5, 13);
+        di  = Bitpack_gets(codeword, 5, 8);
         pbi = Bitpack_getu(codeword, 4, 4);
         pri = Bitpack_getu(codeword, 4, 0);
 

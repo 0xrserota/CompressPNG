@@ -102,8 +102,7 @@ uint64_t Bitpack_newu(uint64_t word, unsigned width, unsigned lsb, uint64_t
  * given width at the given least significant bit.
  */
 
-uint64_t Bitpack_news(uint64_t word, unsigned width, unsigned lsb, 
-                      int64_t value)
+uint64_t Bitpack_news(uint64_t word, unsigned width, unsigned lsb, int64_t value)
 {
         assert(width + lsb <= 64);
         if(width == 0) {

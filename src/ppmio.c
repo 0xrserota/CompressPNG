@@ -1,3 +1,6 @@
+/* MODULE 1 
+   ppmio */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -36,21 +39,17 @@ void ppmio_compress(FILE *inputfp)
         int newWidth  = blocked_methods->width(uray2b);
         int newHeight = blocked_methods->height(uray2b);
 
-        /* Creates closure for compressed data */
         compress_data cd = malloc(sizeof(struct compress_data));
-        assert(cd != NULL);
         cd->codeword_queue = Seq_new((newWidth * newHeight) / 4);
         cd->rup = rup;
 
-        /* Passes cd closure struct to compression stage */
         blocked_methods->map_block_major(uray2b, compress_four_pixels, cd);
         write_codewords(cd->codeword_queue, newWidth, newHeight);
 
-
-        /* Frees allocated data */
         free(rup);
         Seq_free(&(cd->codeword_queue));
         free(cd);
+
         blocked_methods->free(&uray2b);
         Pnm_ppmfree(&pnm);
 }
@@ -76,17 +75,14 @@ A2Methods_UArray2 make_uray2_blocked(Pnm_ppm pnm, A2Methods_T blocked_methods)
         A2Methods_UArray2 uray2b;
         int newWidth, newHeight;
 
-        if ((pnm->height % 2) != 0) {
+        if ((pnm->height % 2) != 0) 
                 newHeight = --(pnm->height);
-        } else {
+        else
                 newHeight = pnm->height;
-        }
-        
-        if ((pnm->width % 2) != 0) {
+        if ((pnm->width % 2) != 0) 
                 newWidth = --(pnm->width);
-        } else { 
+        else 
                 newWidth = pnm->width;
-        }
         
         uray2b = blocked_methods->new_with_blocksize(newWidth, newHeight, 
                                                     sizeof(struct Pnm_rgb), 2);
@@ -163,8 +159,6 @@ void compress_four_pixels(int col, int row, A2Methods_UArray2 uray2b,
 
 void call_compression(Rgb_unsigned_pix rup, Seq_T codeword_queue)
 {
-        assert(rup != NULL && codeword_queue != NULL);
-
         Rgb_float_pix rfp;
         Ypp_data ypp;
         Quant_data qd;
@@ -186,8 +180,6 @@ void call_compression(Rgb_unsigned_pix rup, Seq_T codeword_queue)
 
 void write_codewords(Seq_T codeword_queue, int newWidth, int newHeight) 
 {
-        assert(codeword_queue != NULL);
-
         unsigned width  = (unsigned) newWidth;
         unsigned height = (unsigned) newHeight;
 
@@ -219,7 +211,6 @@ void write_codewords(Seq_T codeword_queue, int newWidth, int newHeight)
 
 void ppmio_decompress(FILE *inputfp)
 {
-        assert(inputfp != NULL);
         Pnm_ppm pnm = readcodewords(inputfp);
         Pnm_ppmwrite(stdout, pnm);
         Pnm_ppmfree(&pnm);
@@ -232,8 +223,6 @@ void ppmio_decompress(FILE *inputfp)
 
 Pnm_ppm readcodewords(FILE *inputfp)
 {
-        assert(inputfp != NULL);
-
         unsigned height, width;
         int read = fscanf(inputfp, "COMP40 Compressed image format 2\n%u %u", 
                           &width, &height);
@@ -257,15 +246,11 @@ Pnm_ppm readcodewords(FILE *inputfp)
         }
 
         decomp_pix dp = malloc(sizeof(struct decomp_pix));
-        assert(dp != NULL);
-
         dp->rgb_seq  = rgb_seq;
         dp->temp_rup = Seq_remlo(rgb_seq);
         dp->temp_rup->size = 0;
 
         Pnm_ppm pnm = malloc(sizeof(struct Pnm_ppm));
-        assert(pnm != NULL);
-
         pnm->width  = width;
         pnm->height = height;
         pnm->denominator = 255; 
@@ -287,8 +272,6 @@ Pnm_ppm readcodewords(FILE *inputfp)
 
 void call_decompression(uint32_t codeword, Seq_T rgb_seq)
 {
-        assert(rgb_seq != NULL);
-
         Quant_data qd;
         Ypp_data ypp;
         Rgb_float_pix rfp;

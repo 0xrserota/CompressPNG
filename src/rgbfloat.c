@@ -16,6 +16,7 @@ Rgb_float_pix convert_to_floats(Rgb_unsigned_pix rup)
         int i;
         for (i = 0; i < 4; i++) {
 
+
                 rfp->red[i]   = ((float) rup->red[i])   / denominator;
                 rfp->green[i] = ((float) rup->green[i]) / denominator;
                 rfp->blue[i]  = ((float) rup->blue[i])  / denominator;
